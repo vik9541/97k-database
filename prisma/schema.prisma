@@ -1,0 +1,127 @@
+// Prisma schema file - see docs at https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  shadowDatabaseUrl = env("DATABASE_URL_SHADOW")
+}
+
+// ============================================
+// CORE MODELS
+// ============================================
+
+model User {
+  id            String    @id @default(uuid()) @db.Uuid
+  email         String    @unique
+  password_hash String
+  user_type     String    @default("B2C")
+  status        String    @default("ACTIVE")
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+
+  @@index([email])
+  @@index([user_type])
+}
+
+model Product {
+  id            String    @id @default(uuid()) @db.Uuid
+  sku           String    @unique
+  name          String
+  description   String?
+  category_id   String    @db.Uuid
+  price_base    Decimal
+  stock_total   Int       @default(0)
+  is_active     Boolean   @default(true)
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+
+  @@index([sku])
+  @@index([category_id])
+  @@index([is_active])
+}
+
+model Category {
+  id            String    @id @default(uuid()) @db.Uuid
+  name          String    @unique
+  parent_id     String?   @db.Uuid
+  description   String?
+  is_active     Boolean   @default(true)
+  order_index   Int       @default(0)
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+
+  @@index([parent_id])
+  @@index([is_active])
+}
+
+model Order {
+  id                  String    @id @default(uuid()) @db.Uuid
+  user_id             String    @db.Uuid
+  order_number        String    @unique
+  order_date          DateTime  @default(now())
+  total_amount        Decimal
+  status              String    @default("DRAFT")
+  payment_method      String?
+  shipping_address_id String?   @db.Uuid
+  notes               String?
+  created_at          DateTime  @default(now())
+  updated_at          DateTime  @updatedAt
+
+  @@index([user_id])
+  @@index([status])
+  @@index([order_date])
+}
+
+model OrderItem {
+  id                String    @id @default(uuid()) @db.Uuid
+  order_id          String    @db.Uuid
+  product_id        String    @db.Uuid
+  quantity          Int
+  price_at_purchase Decimal
+  total_price       Decimal
+  created_at        DateTime  @default(now())
+  updated_at        DateTime  @updatedAt
+
+  @@index([order_id])
+  @@index([product_id])
+}
+
+model Document {
+  id              String    @id @default(uuid()) @db.Uuid
+  user_id         String    @db.Uuid
+  order_id        String?   @db.Uuid
+  document_type   String
+  document_number String
+  document_date   DateTime  @default(now())
+  pdf_path        String?
+  pdf_url         String?
+  status          String    @default("DRAFT")
+  signed_at       DateTime?
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
+
+  @@index([user_id])
+  @@index([order_id])
+  @@index([status])
+}
+
+model IntegrationLog {
+  id                String    @id @default(uuid()) @db.Uuid
+  integration_type  String
+  operation_type    String
+  status            String
+  request_data      Json?
+  response_data     Json?
+  error_message     String?
+  external_id       String?
+  created_at        DateTime  @default(now())
+  updated_at        DateTime  @updatedAt
+
+  @@index([integration_type])
+  @@index([status])
+  @@index([created_at])
+}
