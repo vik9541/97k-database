@@ -1,67 +1,43 @@
-# 💾 97k Database
+﻿# 97k-database - Shared Module of super-brain-digital-twin
 
-**PostgreSQL Schema, Migrations, RLS Policies, и Seed Data для Supabase**
+> **MAIN PROJECT:** [super-brain-digital-twin v5.0 (97v.ru)](https://github.com/vik9541/super-brain-digital-twin)  
+> **MASTER DOC:** [MASTER_README.md](https://github.com/vik9541/super-brain-digital-twin/blob/main/MASTER_README.md)  
+> **ARCHITECTURE:** [STRUCTURE.md](https://github.com/vik9541/super-brain-digital-twin/blob/main/STRUCTURE.md)
 
-> Количество таблиц: 17 | RLS политики: 8+ | Миграции: Автоматические
+---
 
-## Контент
+## This Module: PostgreSQL Database Schema
 
-### Таблицы
+- Status: PHASE 12 SYNCED
+- Stack: PostgreSQL 15 + Prisma ORM
+- Type: Shared database (all 97k modules connect here)
+- Provider: Supabase
 
-#### Утю Пользователей
-1. `users` - Основные данные пользователей
-2. `b2b_clients` - Корпоративные клиенты
-3. `b2c_clients` - Обычные клиенты
+## Schema Source of Truth
 
-#### Номенклатура & Цены
-4. `categories` - Категории товаров
-5. `products` - Полные товары
-6. `b2b_prices` - Персональные цены для B2B
-7. `favorite_products` - Облюбленные товары
+**MASTER**: 97k-backend/prisma/schema.prisma  
+**REPLICA**: 97k-database/prisma/schema.prisma (synced from backend)
 
-#### Заказы
-8. `orders` - Главная таблица заказов
-9. `order_items` - Товары в заказе
-10. `shipping_addresses` - Адреса доставки
+## Tables (17+)
 
-#### Документы
-11. `documents` - Счета, акты, УПД
+- User (authentication and profiles)
+- Product (catalog items)
+- Order (order management)
+- AppleContact, AppleContactSync (iOS - PHASE 10)
+- GoogleContact, GoogleContactSync (Android - PHASE 11)
+- OutlookContact, OutlookContactSync (Web - PHASE 12)
+- Analytics (event tracking)
+- GDPRLog (privacy audit)
 
-#### Интеграции
-12. `integration_logs` - Логи всех интеграций
+## Related Modules
 
-## Начало работы
+- [super-brain-digital-twin](https://github.com/vik9541/super-brain-digital-twin) - Main Project
+- [97k-backend](https://github.com/vik9541/97k-backend) - NestJS API (source of schema)
+- [97k-frontend](https://github.com/vik9541/97k-frontend) - React app
+- [97k-infrastructure](https://github.com/vik9541/97k-infrastructure) - Deployment
+- [97k-n8n-workflows](https://github.com/vik9541/97k-n8n-workflows) - Automation
+- [97k-97v-specs](https://github.com/vik9541/97k-97v-specs) - Specs
 
-### Supabase
+---
 
-```bash
-# Копируем все SQL ис папки migrations/
-# в Supabase SQL Editor
-```
-
-### Prisma
-
-```bash
-# Пулл схемы Prisma
-npx prisma db pull
-
-# Генерируем клиент
-npx prisma generate
-
-# Открываем Prisma Studio
-npx prisma studio
-```
-
-## RLS Политики
-
-- **Users**: Могут отредактировать только свои данные
-- **B2B Prices**: Видны только авторизованным B2B клиентам
-- **Orders**: Клиент видит только свои заказы
-- **Documents**: Клиент видит только свои документы
-
-## Seed Данные
-
-```bash
-# Загружаем полные исходные данные
-npm run seed
-```
+**Status**: SYNCED | **Type**: PostgreSQL Database | **Module of**: super-brain-digital-twin v5.0
