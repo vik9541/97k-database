@@ -1,4 +1,5 @@
-// Prisma schema file - see docs at https://pris.ly/d/prisma-schema
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
   provider = "prisma-client-js"
@@ -7,121 +8,289 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  shadowDatabaseUrl = env("DATABASE_URL_SHADOW")
 }
 
-// ============================================
-// CORE MODELS
-// ============================================
+enum UserRole {
+  CUSTOMER_B2C // Розничный покупатель
+  CUSTOMER_B2B // Корпоративный клиент
+  MANAGER      // Менеджер
+  ADMIN        // Администратор
+}
+
+enum OrderStatus {
+  PENDING      // Ожидает подтверждения
+  CONFIRMED    // Подтвержден
+  PROCESSING   // В обработке
+  SHIPPED      // Отправлен
+  DELIVERED    // Доставлен
+  CANCELLED    // Отменен
+}
+
+enum PaymentStatus {
+  PENDING      // Ожидает оплаты
+  PAID         // Оплачен
+  FAILED       // Ошибка оплаты
+  REFUNDED     // Возвращен
+}
 
 model User {
-  id            String    @id @default(uuid()) @db.Uuid
-  email         String    @unique
-  password_hash String
-  user_type     String    @default("B2C")
-  status        String    @default("ACTIVE")
-  created_at    DateTime  @default(now())
-  updated_at    DateTime  @updatedAt
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  role      UserRole @default(CUSTOMER_B2C)
+  
+  // Профиль
+  firstName String?
+  lastName  String?
+  phone     String?
+  
+  // B2B специфичные поля
+  companyName String?
+  inn         String?  @unique
+  kpp         String?
+  creditLimit Decimal? @db.Decimal(10, 2)
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Отношения
+  orders    Order[]
+  addresses Address[]
+  
+  @@map("users")
+}
 
-  @@index([email])
-  @@index([user_type])
+model Address {
+  id        String   @id @default(uuid())
+  userId    String
+  
+  // Адрес
+  country   String   @default("Россия")
+  city      String
+  street    String
+  building  String
+  apartment String?
+  zipCode   String?
+  
+  isDefault Boolean  @default(false)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Отношения
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orders    Order[]
+  
+  @@map("addresses")
 }
 
 model Product {
-  id            String    @id @default(uuid()) @db.Uuid
-  sku           String    @unique
-  name          String
-  description   String?
-  category_id   String    @db.Uuid
-  price_base    Decimal
-  stock_total   Int       @default(0)
-  is_active     Boolean   @default(true)
-  created_at    DateTime  @default(now())
-  updated_at    DateTime  @updatedAt
-
-  @@index([sku])
-  @@index([category_id])
-  @@index([is_active])
+  id          String   @id @default(uuid())
+  
+  // Основные данные
+  name        String
+  description String?
+  sku         String   @unique // Артикул
+  
+  // Цены
+  priceRetail Decimal  @db.Decimal(10, 2) // Розничная цена
+  priceB2B    Decimal? @db.Decimal(10, 2) // Оптовая цена
+  
+  // Остатки
+  stock       Int      @default(0)
+  unit        String   @default("шт") // Единица измерения
+  
+  // Категория
+  categoryId  String?
+  
+  // Метаданные
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Отношения
+  category    Category?    @relation(fields: [categoryId], references: [id])
+  orderItems  OrderItem[]
+  
+  @@map("products")
 }
 
 model Category {
-  id            String    @id @default(uuid()) @db.Uuid
-  name          String    @unique
-  parent_id     String?   @db.Uuid
-  description   String?
-  is_active     Boolean   @default(true)
-  order_index   Int       @default(0)
-  created_at    DateTime  @default(now())
-  updated_at    DateTime  @updatedAt
-
-  @@index([parent_id])
-  @@index([is_active])
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  description String?
+  parentId    String?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Отношения
+  parent      Category?  @relation("CategoryTree", fields: [parentId], references: [id])
+  children    Category[] @relation("CategoryTree")
+  products    Product[]
+  
+  @@map("categories")
 }
 
 model Order {
-  id                  String    @id @default(uuid()) @db.Uuid
-  user_id             String    @db.Uuid
-  order_number        String    @unique
-  order_date          DateTime  @default(now())
-  total_amount        Decimal
-  status              String    @default("DRAFT")
-  payment_method      String?
-  shipping_address_id String?   @db.Uuid
-  notes               String?
-  created_at          DateTime  @default(now())
-  updated_at          DateTime  @updatedAt
-
-  @@index([user_id])
-  @@index([status])
-  @@index([order_date])
+  id            String        @id @default(uuid())
+  orderNumber   String        @unique // Номер заказа
+  
+  // Клиент
+  userId        String
+  addressId     String
+  
+  // Статусы
+  status        OrderStatus   @default(PENDING)
+  paymentStatus PaymentStatus @default(PENDING)
+  
+  // Суммы
+  subtotal      Decimal       @db.Decimal(10, 2)
+  deliveryPrice Decimal       @default(0) @db.Decimal(10, 2)
+  totalPrice    Decimal       @db.Decimal(10, 2)
+  
+  // Доставка
+  deliveryDate  DateTime?
+  deliveryNotes String?
+  
+  // Timestamps
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  
+  // Отношения
+  user          User          @relation(fields: [userId], references: [id])
+  address       Address       @relation(fields: [addressId], references: [id])
+  items         OrderItem[]
+  
+  @@map("orders")
 }
 
 model OrderItem {
-  id                String    @id @default(uuid()) @db.Uuid
-  order_id          String    @db.Uuid
-  product_id        String    @db.Uuid
-  quantity          Int
-  price_at_purchase Decimal
-  total_price       Decimal
-  created_at        DateTime  @default(now())
-  updated_at        DateTime  @updatedAt
-
-  @@index([order_id])
-  @@index([product_id])
+  id        String   @id @default(uuid())
+  orderId   String
+  productId String
+  
+  quantity  Int
+  price     Decimal  @db.Decimal(10, 2) // Цена на момент заказа
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Отношения
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id])
+  
+  @@map("order_items")
 }
 
-model Document {
-  id              String    @id @default(uuid()) @db.Uuid
-  user_id         String    @db.Uuid
-  order_id        String?   @db.Uuid
-  document_type   String
-  document_number String
-  document_date   DateTime  @default(now())
-  pdf_path        String?
-  pdf_url         String?
-  status          String    @default("DRAFT")
-  signed_at       DateTime?
-  created_at      DateTime  @default(now())
-  updated_at      DateTime  @updatedAt
+// ============================================
+// PHASE 10: APPLE CONTACTS INTEGRATION
+// PHASE 11: GOOGLE CONTACTS + MULTI-SOURCE
+// ============================================
 
-  @@index([user_id])
-  @@index([order_id])
-  @@index([status])
+model Contact {
+  id               BigInt    @id @default(autoincrement())
+  userId           String    @db.VarChar(255) // User who owns this contact
+  
+  // Basic contact info
+  firstName        String?   @db.VarChar(255)
+  lastName         String?   @db.VarChar(255)
+  email            String?   @db.VarChar(255)
+  phone            String?   @db.VarChar(50)
+  company          String?   @db.VarChar(255)
+  jobTitle         String?   @db.VarChar(255)
+  notes            String?   @db.Text
+  
+  // Apple Contacts Integration (PHASE 10)
+  appleContactId   String?   @db.VarChar(255)
+  appleModifiedAt  DateTime?
+  
+  // Google Contacts Integration (PHASE 11)
+  googleContactId  String?   @db.VarChar(255)
+  googleModifiedAt DateTime?
+  
+  // Outlook Contacts Integration (PHASE 12)
+  outlookContactId String?   @db.VarChar(255)
+  outlookModifiedAt DateTime?
+  
+  // Multi-source support (PHASE 11-12)
+  sourceType       String    @default("manual") @db.VarChar(50) // 'apple' | 'google' | 'outlook' | 'all_three' | 'manual'
+  syncVersion      Int       @default(1)
+  
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  
+  // Relations
+  syncConflicts    SyncConflict[]
+  
+  @@index([userId])
+  @@index([email])
+  @@index([appleContactId])
+  @@index([googleContactId])
+  @@index([outlookContactId])
+  @@index([sourceType])
+  @@map("contacts")
 }
 
-model IntegrationLog {
-  id                String    @id @default(uuid()) @db.Uuid
-  integration_type  String
-  operation_type    String
-  status            String
-  request_data      Json?
-  response_data     Json?
-  error_message     String?
-  external_id       String?
-  created_at        DateTime  @default(now())
-  updated_at        DateTime  @updatedAt
+model AppleContactsSync {
+  id                  BigInt    @id @default(autoincrement())
+  userId              String    @unique @db.VarChar(255)
+  lastSyncAt          DateTime?
+  syncToken           String?   @db.VarChar(255)
+  totalContactsSynced Int       @default(0)
+  enabled             Boolean   @default(true)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
-  @@index([integration_type])
-  @@index([status])
-  @@index([created_at])
+  @@index([userId])
+  @@map("apple_contacts_sync")
+}
+
+model GoogleContactsSync {
+  id                  BigInt    @id @default(autoincrement())
+  userId              String    @unique @db.VarChar(255)
+  lastSyncAt          DateTime?
+  syncToken           String?   @db.VarChar(255)
+  totalContactsSynced Int       @default(0)
+  enabled             Boolean   @default(true)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("google_contacts_sync")
+}
+
+model OutlookContactsSync {
+  id                  BigInt    @id @default(autoincrement())
+  userId              String    @unique @db.VarChar(255)
+  status              String    @db.VarChar(50) @default("disconnected")
+  lastSyncAt          DateTime?
+  totalContactsSynced Int       @default(0)
+  enabled             Boolean   @default(true)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("outlook_contacts_sync")
+}
+
+model SyncConflict {
+  id                 BigInt    @id @default(autoincrement())
+  contactId          BigInt
+  userId             String    @db.VarChar(255)
+  conflictType       String    @db.VarChar(50)
+  localData          Json?
+  remoteData         Json?
+  resolved           Boolean   @default(false)
+  resolutionStrategy String?   @db.VarChar(50)
+  createdAt          DateTime  @default(now())
+  resolvedAt         DateTime?
+
+  contact Contact @relation(fields: [contactId], references: [id])
+
+  @@index([contactId])
+  @@index([userId])
+  @@map("sync_conflicts")
 }
